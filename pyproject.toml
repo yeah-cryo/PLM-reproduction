@@ -1,0 +1,26 @@
+[project]
+name = "plm-aigi-reproduction"
+version = "0.1.0"
+description = "Paper-based reproduction of pixel-level mapping for AI-generated image detection"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "pillow>=10.0",
+  "pyyaml>=6.0",
+  "torch>=2.2",
+  "torchvision>=0.17",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/plm"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
