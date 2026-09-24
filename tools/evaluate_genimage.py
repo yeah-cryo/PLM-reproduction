@@ -13,7 +13,7 @@ from plm.data import (GenImageDataset, PLMTransform, collate_valid, discover_spl
                       seed_worker)
 from plm.degradation import DegradationConfig, DegradationPipeline, PROFILES
 from plm.metrics import binary_metrics
-from plm.model import PLMResNet50
+from plm.model import build_model
 
 
 GENERATORS = {
@@ -70,7 +70,7 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     config = checkpoint["configuration"]
-    model = PLMResNet50(config["initialization"], config.get("pretrained_path"))
+    model = build_model(config)
     model.load_state_dict(checkpoint["model"], strict=True)
     model.cuda().eval().requires_grad_(False)
     digest = hashlib.sha256(Path(args.checkpoint).read_bytes()).hexdigest()

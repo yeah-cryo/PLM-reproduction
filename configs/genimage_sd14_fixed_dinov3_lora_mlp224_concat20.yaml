@@ -1,0 +1,36 @@
+data_root: /mnt/f/datasets/GenImage/stable_diffusion_v_1_4/imagenet_ai_0419_sdv4
+genimage_root: /mnt/f/datasets/GenImage
+output: outputs/genimage_sd14_fixed_dinov3l_lora_r8_mlp_224_concat_20ep
+seed: 42
+crop_size: 224
+epochs: 20
+global_batch_size: 128
+micro_batch_size: 16
+evaluation_batch_size: 64
+workers: 8
+optimizer: Adam
+learning_rate: 0.0002
+mlp_learning_rate: 0.00001
+betas: [0.9, 0.999]
+weight_decay: 0.0002
+learning_rate_schedule: constant
+precision: bf16
+model: dinov3_lora
+initialization: imagenet
+pretrained_path: /mnt/e/repos/GGGT/pretrained_weight/dinov3-l16
+pool_patch_tokens: true
+lora:
+  rank: 8
+  alpha: 16.0
+  dropout: 0.0
+  start_layer: 1
+  end_layer: 24
+  targets: [q_proj, k_proj, v_proj, o_proj]
+  train_block_mlps: true
+  gradient_checkpointing: true
+checkpoint_interval: 5
+log_interval: 25
+expected_images_per_class: 162000
+degradation:
+  enabled: false
+protocol: fixed pixel mapping, random 224 crop, DINOv3-L/16 attention LoRA plus trainable block MLPs, CLS concatenated with mean patch token, linear head, Adam

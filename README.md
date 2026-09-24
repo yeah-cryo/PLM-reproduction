@@ -169,3 +169,33 @@ bash scripts/train.sh \
 The CUDA JPEG transform reproduces JPEG's pixel-domain DCT and quantization effects
 but does not perform entropy coding or chroma subsampling. Checkpoints record the
 complete degradation configuration and per-epoch counts for all six levels.
+
+## DINOv3-LoRA variants
+
+The clean 128×128 ablation replaces ResNet-50 with local ImageNet-pretrained
+DINOv3-L/16, applies rank-8 LoRA to every attention q/k/v/output projection, and
+trains a linear classifier on the CLS token for 20 epochs:
+
+```bash
+bash scripts/train_dinov3_lora.sh
+```
+
+The 224×224 variant additionally fine-tunes every transformer-block MLP and
+classifies the concatenation of the CLS token and the mean-pooled patch tokens.
+It uses learning rates `2e-4` for LoRA/the classifier and `1e-5` for pretrained
+MLP weights:
+
+```bash
+bash scripts/train_dinov3_lora_mlp224_concat.sh
+```
+
+Both launchers use the local DINOv3 checkpoint configured in their YAML files,
+BF16, gradient checkpointing, global batch size 128, and no degradation. The
+matching evaluator constructs the model from the configuration saved inside the
+checkpoint:
+
+```bash
+bash scripts/evaluate_dinov3_lora.sh \
+  --checkpoint outputs/genimage_sd14_fixed_dinov3l_lora_r8_mlp_224_concat_20ep/final.pt \
+  --output outputs/genimage_sd14_fixed_dinov3l_lora_r8_mlp_224_concat_20ep/genimage_evaluation
+```

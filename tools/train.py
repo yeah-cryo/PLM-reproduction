@@ -18,7 +18,7 @@ from plm.data import (CLASSES, GenImageDataset, PLMTransform, discover_split,
 from plm.degradation import (DegradationConfig, DegradationPipeline,
                              RandomLevelDegradationPipeline)
 from plm.gpu_degradation import GPURandomSRDegradation
-from plm.model import PLMResNet50
+from plm.model import build_model
 
 
 def seed_all(seed):
@@ -119,8 +119,21 @@ def main():
     device = torch.device("cuda")
     if gpu_degradation is not None:
         gpu_degradation = gpu_degradation.to(device)
-    model = PLMResNet50(config["initialization"], config.get("pretrained_path")).to(device)
-    optimizer = torch.optim.Adam(model.classifier.parameters(), lr=config["learning_rate"],
+    model = build_model(config).to(device)
+    named_trainable = [(name, parameter) for name, parameter in model.named_parameters()
+                       if parameter.requires_grad]
+    trainable_parameters = [parameter for _, parameter in named_trainable]
+    mlp_learning_rate = config.get("mlp_learning_rate")
+    if mlp_learning_rate is not None:
+        mlp_parameters = [parameter for name, parameter in named_trainable if ".mlp." in name]
+        adapter_parameters = [parameter for name, parameter in named_trainable if ".mlp." not in name]
+        optimizer_parameters = [
+            {"params": adapter_parameters, "lr": config["learning_rate"]},
+            {"params": mlp_parameters, "lr": mlp_learning_rate},
+        ]
+    else:
+        optimizer_parameters = trainable_parameters
+    optimizer = torch.optim.Adam(optimizer_parameters, lr=config["learning_rate"],
                                  betas=tuple(config["betas"]), weight_decay=config["weight_decay"])
     start_epoch = 0
     if args.resume:
@@ -137,7 +150,11 @@ def main():
     print(json.dumps({"images": len(dataset), "epochs": config["epochs"],
                       "batches_per_epoch": len(loader), "global_batch_size": config["global_batch_size"],
                       "micro_batch_size": config["micro_batch_size"], "accumulation": accumulation,
+                      "model": config.get("model", "resnet50"),
                       "initialization": config["initialization"], "precision": config["precision"],
+                      "trainable_parameters": sum(p.numel() for p in trainable_parameters),
+                      "adapter_learning_rate": config["learning_rate"],
+                      "mlp_learning_rate": mlp_learning_rate,
                       "degradation": degradation_config}), flush=True)
     metrics_path = output / "metrics.jsonl"
     for epoch in range(start_epoch, config["epochs"]):
@@ -183,7 +200,9 @@ def main():
                    "epoch": epoch, "configuration": config, "label_mapping": CLASSES,
                    "manifest_sha256": manifest_hash, "rng_state": rng_state(),
                    "loader_generator_state": loader_generator.get_state(),
-                   "paper_protocol": "fixed pixel mapping, random 128 crop, ResNet-50, Adam",
+                   "paper_protocol": config.get(
+                       "protocol", "fixed pixel mapping, random 128 crop, ResNet-50, Adam"
+                   ),
                    "degradation": degradation_config}
         atomic_save(payload, output / "latest.pt")
         if (epoch + 1) % config["checkpoint_interval"] == 0 or epoch + 1 == config["epochs"]:
