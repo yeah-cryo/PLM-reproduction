@@ -95,7 +95,7 @@ def main():
         results.append(row)
         print(json.dumps(row), flush=True)
     summary = {"checkpoint": str(Path(args.checkpoint).resolve()), "checkpoint_sha256": digest,
-               "epoch": checkpoint["epoch"] + 1, "crop": "center 128x128",
+               "epoch": checkpoint["epoch"] + 1, "crop": f"center {config['crop_size']}x{config['crop_size']}",
                "mapping": "Equation 4 fixed mapping", "threshold": 0.5,
                "degradation": {"profile": degradation_config.profile,
                                "level": degradation_config.level,
