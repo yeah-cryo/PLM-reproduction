@@ -199,3 +199,25 @@ bash scripts/evaluate_dinov3_lora.sh \
   --checkpoint outputs/genimage_sd14_fixed_dinov3l_lora_r8_mlp_224_concat_20ep/final.pt \
   --output outputs/genimage_sd14_fixed_dinov3l_lora_r8_mlp_224_concat_20ep/genimage_evaluation
 ```
+
+## Smooth pixel-mapping ablation
+
+The smooth mapping replaces the fixed PLM lookup with seeded, channel-specific
+control points sampled uniformly from `[-1, 1]`. Values between control points
+are linearly interpolated. For intensity spacing `h`, adjacent mapped values
+can differ by at most `2 / h`; this controls how strongly a small RGB
+perturbation is amplified without spatially blurring the image.
+
+Run one of the initial spacing ablations with:
+
+```bash
+bash scripts/train_smooth_mapping.sh 4
+bash scripts/train_smooth_mapping.sh 16
+bash scripts/train_smooth_mapping.sh 64
+```
+
+Each experiment otherwise uses the original 200-epoch fixed-PLM protocol:
+SD 1.4 GenImage training data, random 128×128 crops, a ResNet-50 trained from
+scratch, Adam, BF16, and global batch size 128. The sampled lookup table is a
+persistent model buffer, so it is included in every checkpoint and reproduced
+exactly during evaluation.

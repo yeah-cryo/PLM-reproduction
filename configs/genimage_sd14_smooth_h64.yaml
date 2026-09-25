@@ -1,0 +1,27 @@
+data_root: /mnt/f/datasets/GenImage/stable_diffusion_v_1_4/imagenet_ai_0419_sdv4
+genimage_root: /mnt/f/datasets/GenImage
+output: outputs/genimage_sd14_smooth_h64
+seed: 42
+crop_size: 128
+epochs: 200
+global_batch_size: 128
+micro_batch_size: 64
+evaluation_batch_size: 256
+workers: 8
+optimizer: Adam
+learning_rate: 0.0002
+betas: [0.9, 0.999]
+weight_decay: 0.0002
+learning_rate_schedule: constant
+precision: bf16
+initialization: scratch
+pretrained_path: null
+mapping:
+  type: smooth
+  spacing: 64
+  seed: 42
+  per_channel: true
+checkpoint_interval: 10
+log_interval: 50
+expected_images_per_class: 162000
+protocol: seeded smooth pixel mapping h=64, random 128 crop, ResNet-50, Adam

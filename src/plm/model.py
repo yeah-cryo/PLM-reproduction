@@ -5,13 +5,13 @@ import torch.nn.functional as F
 from torch import nn
 from torchvision.models import resnet50
 
-from .mapping import FixedPixelMapping
+from .mapping import build_pixel_mapping
 
 
 class PLMResNet50(nn.Module):
-    def __init__(self, initialization="scratch", pretrained_path=None):
+    def __init__(self, initialization="scratch", pretrained_path=None, mapping=None):
         super().__init__()
-        self.mapping = FixedPixelMapping()
+        self.mapping = build_pixel_mapping(mapping)
         self.classifier = resnet50(weights=None)
         if initialization == "imagenet":
             if not pretrained_path:
@@ -87,13 +87,13 @@ class PLMDINOv3LoRA(nn.Module):
 
     def __init__(self, pretrained_path, rank=8, alpha=16.0, dropout=0.0,
                  start_layer=1, end_layer=24, gradient_checkpointing=True,
-                 train_block_mlps=False, pool_patch_tokens=False):
+                 train_block_mlps=False, pool_patch_tokens=False, mapping=None):
         super().__init__()
         if not pretrained_path:
             raise ValueError("pretrained_path is required for DINOv3 LoRA")
         from transformers import AutoModel
 
-        self.mapping = FixedPixelMapping()
+        self.mapping = build_pixel_mapping(mapping)
         self.backbone = AutoModel.from_pretrained(pretrained_path, local_files_only=True)
         self.backbone.requires_grad_(False)
         self.lora_modules = apply_attention_lora(
@@ -127,7 +127,10 @@ class PLMDINOv3LoRA(nn.Module):
 def build_model(config):
     model_name = config.get("model", "resnet50")
     if model_name == "resnet50":
-        return PLMResNet50(config["initialization"], config.get("pretrained_path"))
+        return PLMResNet50(
+            config["initialization"], config.get("pretrained_path"),
+            config.get("mapping"),
+        )
     if model_name == "dinov3_lora":
         lora = config["lora"]
         return PLMDINOv3LoRA(
@@ -137,5 +140,6 @@ def build_model(config):
             gradient_checkpointing=lora.get("gradient_checkpointing", True),
             train_block_mlps=lora.get("train_block_mlps", False),
             pool_patch_tokens=config.get("pool_patch_tokens", False),
+            mapping=config.get("mapping"),
         )
     raise ValueError(f"Unknown model: {model_name}")
