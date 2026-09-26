@@ -94,9 +94,18 @@ def main():
         row = {"generator": name, **evaluate(model, loader, torch.device("cuda"), config["precision"])}
         results.append(row)
         print(json.dumps(row), flush=True)
+    mapping_config = config.get("mapping", {"type": "fixed"})
+    if mapping_config.get("type", "fixed") == "smooth":
+        mapping_description = (
+            f"seeded smooth piecewise-linear mapping "
+            f"(h={mapping_config.get('spacing', 16)}, seed={mapping_config.get('seed', 42)}, "
+            f"per_channel={mapping_config.get('per_channel', True)})"
+        )
+    else:
+        mapping_description = "Equation 4 fixed mapping"
     summary = {"checkpoint": str(Path(args.checkpoint).resolve()), "checkpoint_sha256": digest,
                "epoch": checkpoint["epoch"] + 1, "crop": f"center {config['crop_size']}x{config['crop_size']}",
-               "mapping": "Equation 4 fixed mapping", "threshold": 0.5,
+               "mapping": mapping_description, "threshold": 0.5,
                "degradation": {"profile": degradation_config.profile,
                                "level": degradation_config.level,
                                "seed": degradation_config.seed},
