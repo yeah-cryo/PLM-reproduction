@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from plm.mapping import (FixedPixelMapping, SmoothPixelMapping,
+from plm.mapping import (FixedPixelMapping, PixelFrequencyModulation, SmoothPixelMapping,
                          build_pixel_mapping, fixed_mapping_lut,
                          random_pixel_mapping, smooth_mapping_lut)
 
@@ -67,3 +67,24 @@ def test_mapping_factory_preserves_fixed_default_and_builds_smooth():
     mapping = build_pixel_mapping({"type": "smooth", "spacing": 64, "seed": 3})
     assert isinstance(mapping, SmoothPixelMapping)
     assert mapping.spacing == 64
+
+
+def test_frequency_modulation_shape_range_and_block_reset():
+    image = torch.full((2, 3, 16, 32), 128, dtype=torch.uint8)
+    mapping = PixelFrequencyModulation(
+        block_size=16, cycles=2, min_frequency=1 / 16,
+        max_frequency=3 / 16,
+    )
+    mapped = mapping(image)
+    assert mapped.shape == (2, 12, 16, 32)
+    assert mapped.min() >= -1.0 and mapped.max() <= 1.0
+    torch.testing.assert_close(mapped[..., 0], mapped[..., 16])
+
+
+def test_frequency_modulation_factory():
+    mapping = build_pixel_mapping({
+        "type": "frequency_modulation", "block_size": 8, "cycles": 1,
+        "min_frequency": 0.125, "max_frequency": 0.25,
+    })
+    assert isinstance(mapping, PixelFrequencyModulation)
+    assert mapping.output_channels == 12

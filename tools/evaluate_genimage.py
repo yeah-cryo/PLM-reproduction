@@ -101,6 +101,14 @@ def main():
             f"(h={mapping_config.get('spacing', 16)}, seed={mapping_config.get('seed', 42)}, "
             f"per_channel={mapping_config.get('per_channel', True)})"
         )
+    elif mapping_config.get("type") == "frequency_modulation":
+        mapping_description = (
+            f"block-local pixel frequency modulation "
+            f"(P={mapping_config.get('block_size', 16)}, "
+            f"m={mapping_config.get('cycles', 2)}, "
+            f"f=[{mapping_config.get('min_frequency', 1 / 16)}, "
+            f"{mapping_config.get('max_frequency', 3 / 16)}])"
+        )
     else:
         mapping_description = "Equation 4 fixed mapping"
     summary = {"checkpoint": str(Path(args.checkpoint).resolve()), "checkpoint_sha256": digest,

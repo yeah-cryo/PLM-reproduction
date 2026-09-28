@@ -70,6 +70,59 @@ class SmoothPixelMapping(nn.Module):
         return lut[channel, image.long()]
 
 
+class PixelFrequencyModulation(nn.Module):
+    """Encode RGB intensities as block-local horizontal/vertical frequency.
+
+    Pixel values select an instantaneous frequency through a non-injective
+    cosine mapping.  Phase is accumulated independently inside blocks so a
+    perturbation cannot propagate through an entire row or column.
+    """
+
+    output_channels = 12
+
+    def __init__(self, block_size=16, cycles=2, min_frequency=1 / 16,
+                 max_frequency=3 / 16):
+        super().__init__()
+        self.block_size = int(block_size)
+        self.cycles = int(cycles)
+        self.min_frequency = float(min_frequency)
+        self.max_frequency = float(max_frequency)
+        if self.block_size <= 0:
+            raise ValueError("block_size must be positive")
+        if self.cycles <= 0:
+            raise ValueError("cycles must be positive")
+        if not 0.0 <= self.min_frequency < self.max_frequency < 0.5:
+            raise ValueError("frequencies must satisfy 0 <= min < max < 0.5")
+
+    def forward(self, image: torch.Tensor) -> torch.Tensor:
+        if image.dtype != torch.uint8 or image.ndim != 4 or image.shape[1] != 3:
+            raise ValueError("PixelFrequencyModulation expects BCHW uint8 RGB input")
+        batch, channels, height, width = image.shape
+        if height % self.block_size or width % self.block_size:
+            raise ValueError(
+                f"image dimensions {(height, width)} must be divisible by block_size "
+                f"{self.block_size}"
+            )
+
+        values = image.float().div(255.0)
+        frequency = self.min_frequency + (
+            self.max_frequency - self.min_frequency
+        ) * (1.0 - torch.cos(2.0 * torch.pi * self.cycles * values)) * 0.5
+        increments = 2.0 * torch.pi * frequency
+
+        horizontal = increments.reshape(
+            batch, channels, height, width // self.block_size, self.block_size
+        ).cumsum(dim=-1).reshape(batch, channels, height, width)
+        vertical = increments.reshape(
+            batch, channels, height // self.block_size, self.block_size, width
+        ).cumsum(dim=3).reshape(batch, channels, height, width)
+
+        return torch.cat(
+            (horizontal.sin(), horizontal.cos(), vertical.sin(), vertical.cos()),
+            dim=1,
+        )
+
+
 def build_pixel_mapping(configuration=None):
     """Build a mapping from a checkpoint-compatible configuration mapping."""
     configuration = configuration or {"type": "fixed"}
@@ -81,6 +134,13 @@ def build_pixel_mapping(configuration=None):
             spacing=configuration.get("spacing", 16),
             seed=configuration.get("seed", 42),
             per_channel=configuration.get("per_channel", True),
+        )
+    if mapping_type == "frequency_modulation":
+        return PixelFrequencyModulation(
+            block_size=configuration.get("block_size", 16),
+            cycles=configuration.get("cycles", 2),
+            min_frequency=configuration.get("min_frequency", 1 / 16),
+            max_frequency=configuration.get("max_frequency", 3 / 16),
         )
     raise ValueError(f"Unknown pixel mapping type: {mapping_type}")
 

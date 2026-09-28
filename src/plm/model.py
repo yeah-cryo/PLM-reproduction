@@ -20,6 +20,14 @@ class PLMResNet50(nn.Module):
             self.classifier.load_state_dict(state, strict=True)
         elif initialization != "scratch":
             raise ValueError(f"Unknown initialization: {initialization}")
+        output_channels = getattr(self.mapping, "output_channels", 3)
+        if output_channels != self.classifier.conv1.in_channels:
+            original = self.classifier.conv1
+            self.classifier.conv1 = nn.Conv2d(
+                output_channels, original.out_channels,
+                kernel_size=original.kernel_size, stride=original.stride,
+                padding=original.padding, bias=False,
+            )
         self.classifier.fc = nn.Linear(self.classifier.fc.in_features, 2)
 
     def forward(self, uint8_images):
